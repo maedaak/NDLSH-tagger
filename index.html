@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>国会図書館件名標目タガー (NDLSH Tagger) - Web NDL Authorities連動</title>
+  <meta name="description" content="テキスト中の国立国会図書館件名標目（NDLSH・参照形含む）をブラウザ上で高速検出し、標目形やNDC分類を提示・コピーできる静的Webアプリケーションです。">
+  <meta name="keywords" content="NDLSH, 国会図書館件名標目, 件名標目タガー, 目録, MARC, Web NDL Authorities, NDC">
+  <meta property="og:title" content="国会図書館件名標目タガー (NDLSH Tagger)">
+  <meta property="og:description" content="テキスト中の国立国会図書館件名標目（NDLSH・参照形含む）をハイライト＋標目形を提示。GitHub Pagesで完結する高速クライアントサイドタガー。">
+  <meta property="og:type" content="website">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+JP:wght@400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay" aria-live="polite">
+    <div class="loading-card">
+      <div class="loading-spinner"></div>
+      <h3>NDLSH辞書データを読み込み中</h3>
+      <p style="font-size:0.85rem;color:var(--color-text-muted)">国立国会図書館件名標目（約20,000語＋同義語）を展開しています...</p>
+      <div class="loading-progress-wrap">
+        <div id="progressBar" class="loading-progress-bar"></div>
+      </div>
+      <div id="progressMessage" class="loading-msg">準備中...</div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <div class="brand-area">
+        <div class="brand-logo" aria-hidden="true">標</div>
+        <div class="brand-title-wrap">
+          <h1>国会図書館件名標目タガー</h1>
+          <div class="brand-subtitle">NDLSH Tagger for Web & Catalogers</div>
+        </div>
+      </div>
+      <div class="header-controls">
+        <div id="statusBadge" class="status-badge">
+          <span class="status-dot"></span> 辞書読込中...
+        </div>
+        <button id="themeToggle" class="btn-secondary" aria-label="テーマ切替">
+          <span class="theme-icon">🌙</span> ダークモード
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-wrapper">
+
+    <!-- Hero Introduction -->
+    <section class="intro-hero" aria-label="ツール概要">
+      <div class="hero-text">
+        <h2>テキスト中の国会図書館件名標目をハイライト＋標目形を提示します</h2>
+        <p>図書の内容紹介文や抄録、目次などのテキストから件名標目候補を瞬時に抽出します。サーバー通信なしの完全ブラウザ内処理のため、長文でも高速・安全に動作します。</p>
+      </div>
+      <div class="hero-badges">
+        <span class="hero-badge-item">⚡ 完全クライアントサイド実行</span>
+        <span class="hero-badge-item">📚 Web NDL Authorities 最新データ対応</span>
+        <span class="hero-badge-item">🎯 同義語・参照形（USE/UF）自動展開</span>
+        <span class="hero-badge-item">📋 目録システム向け一括コピー</span>
+      </div>
+    </section>
+
+    <!-- App Grid -->
+    <div class="app-grid">
+
+      <!-- Left: Input Panel -->
+      <section class="panel-card" aria-label="入力パネル">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span class="panel-icon">📝</span>
+            <span>解析テキスト入力</span>
+          </div>
+          <div class="panel-actions">
+            <select id="sampleSelector" class="form-select" aria-label="サンプル文章を選択">
+              <option value="">▼ サンプル文章を試す</option>
+              <option value="info">情報科学・図書館学・AI</option>
+              <option value="literature">近代日本文学・社会と思想</option>
+              <option value="science">地球温暖化・洋上風力発電</option>
+              <option value="medical">地域医療・終末期医療・心理学</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="panel-body">
+          <div class="textarea-container">
+            <textarea
+              id="inputText"
+              class="input-textarea"
+              maxlength="1000"
+              placeholder="ここに図書の内容紹介文、目次、要約、論文のアブストラクトなどを貼り付けてください（最大1000文字）..."
+              aria-label="タグ付け対象のテキスト"></textarea>
+            <div class="char-counter-bar">
+              <span id="charCount" class="char-count">0 / 1000文字</span>
+            </div>
+          </div>
+
+          <!-- Options Toolbar -->
+          <div class="options-bar">
+            <div class="options-group">
+              <label class="toggle-label" title="入力テキストの変更に合わせて自動で再タグ付けを行います">
+                <input type="checkbox" id="liveTagToggle" checked>
+                <span>リアルタイム解析</span>
+              </label>
+              <label class="toggle-label" title="『本』『法』『絵』『詩』などの1文字標目をマッチ対象に含めます">
+                <input type="checkbox" id="minLenToggle">
+                <span>1文字標目も含める</span>
+              </label>
+              <label class="toggle-label" title="Intl.Segmenterを用いて単語境界でのみマッチさせ、形態素途中の誤爆を防ぎます">
+                <input type="checkbox" id="boundaryToggle" checked>
+                <span>単語境界優先 (推奨)</span>
+              </label>
+            </div>
+            <div class="options-group">
+              <select id="styleToggle" class="form-select" aria-label="表示スタイル">
+                <option value="modern">モダン表示 (バッジ+ツールチップ)</option>
+                <option value="classic">クラシック表示 (2012年版 []青字スタイル)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Buttons -->
+          <div class="btn-group">
+            <button id="runBtn" class="btn-primary" type="button">
+              <span>実行する</span>
+            </button>
+            <button id="clearBtn" class="btn-ghost" type="button">
+              <span>クリア</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right: Output Panel -->
+      <section class="panel-card" aria-label="解析結果パネル">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span class="panel-icon">🏷️</span>
+            <span>タギング結果</span>
+          </div>
+          <div class="panel-actions">
+            <!-- Stats -->
+            <div id="statsBar" class="stats-bar" style="display:none;">
+              <span class="stat-item">検出数: <strong id="statMatches">0</strong></span>
+              <span class="stat-item">件名種別: <strong id="statHeadings">0</strong></span>
+              <span class="stat-item">処理時間: <strong id="statTime">0 ms</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-body">
+          <!-- Empty State -->
+          <div id="emptyState" class="empty-state">
+            <div class="empty-icon">📖</div>
+            <h3>テキストを入力して「実行する」をクリックしてください</h3>
+            <p>検出された件名標目はハイライト表示され、マウスを乗せると標目形やNDC分類記号が表示されます。</p>
+          </div>
+
+          <!-- Output Container -->
+          <div id="outputContainer" class="output-scroll" style="display:none;">
+            <div id="taggedContent" class="tagged-content modern-view"></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Extracted Headings Section (Cataloging Assistant) -->
+    <section id="headingsListContainer" class="headings-section" style="display:none;" aria-label="抽出された件名標目一覧">
+      <div class="headings-header">
+        <h3>
+          <span>📌 抽出された件名標目一覧</span>
+          <span style="font-size:0.8rem;font-weight:normal;color:var(--color-text-muted)">（目録システム・MARC作成支援）</span>
+        </h3>
+        <div class="action-btn-row">
+          <button id="copyHeadingsBtn" class="btn-action" title="抽出された正式標目を改行区切りでクリップボードにコピー">
+            📋 標目のみコピー
+          </button>
+          <button id="copySlashBtn" class="btn-action" title="標目をスラッシュ区切りでコピー（MARC/NACSIS形式）">
+            📋 スラッシュ区切りコピー
+          </button>
+          <button id="copyNdcBtn" class="btn-action" title="標目とNDC分類記号をコピー">
+            📋 標目+NDCコピー
+          </button>
+          <button id="exportCsvBtn" class="btn-action" title="検出結果をCSV形式で保存">
+            💾 CSVエクスポート
+          </button>
+        </div>
+      </div>
+      <div id="headingsList" class="headings-chips"></div>
+    </section>
+
+    <!-- Quick NDLSH Dictionary Search Section -->
+    <section class="dict-section" aria-label="NDLSH辞書クイック検索">
+      <div class="dict-header">
+        <h3>
+          <span>🔍 NDLSH辞書クイック検索</span>
+          <span style="font-size:0.8rem;font-weight:normal;color:var(--color-text-muted)">（普通件名・同義語・NDC逆引き）</span>
+        </h3>
+      </div>
+      <div class="dict-search-wrap">
+        <input
+          type="text"
+          id="dictSearchInput"
+          class="dict-search-input"
+          maxlength="1000"
+          placeholder="標目名（例: 人工知能）、読み（ジンコウチノウ）、同義語（AI）、NDC記号（007.1）で辞書内を直接検索..."
+          aria-label="辞書検索キーワード">
+      </div>
+      <div id="dictSearchResults" class="dict-results">
+        <div class="dict-placeholder">キーワードを入力するとNDLSH辞書（約55,000語）から即座に候補を一覧表示します</div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Tag Popover / Tooltip -->
+  <div id="tagPopover" class="tag-popover" role="dialog" aria-modal="false" aria-label="件名標目詳細情報">
+    <button id="popoverClose" class="popover-close" aria-label="閉じる">×</button>
+    <div id="popoverContent"></div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="footer-container">
+      <div class="footer-top">
+        <div class="footer-about">
+          <h4>国会図書館件名標目タガーについて</h4>
+          <p>
+            本ツールは、テキスト中の国立国会図書館件名標目（NDLSH・参照形含む）を抽出し、目録業務や情報検索を支援するツールです。<br>
+            2012年に東京大学情報基盤センター「図書系職員のためのアプリケーション開発講習会」の成果物として公開されたオリジナル版を元に、最新のWeb標準技術・静的Webサイト（GitHub Pages対応）として再設計・高速化しました。
+          </p>
+        </div>
+        <div class="footer-links">
+          <div>
+            <strong>関連リンク</strong>
+            <ul style="list-style:none;margin-top:0.4rem;display:flex;flex-direction:column;gap:0.3rem;">
+              <li><a href="https://id.ndl.go.jp/auth/ndla" target="_blank" rel="noopener noreferrer">Web NDL Authorities（典拠検索）</a></li>
+              <li><a href="https://id.ndl.go.jp/information/download/" target="_blank" rel="noopener noreferrer">NDLSH一括ダウンロードデータ</a></li>
+              <li><a href="https://ndlsearch.ndl.go.jp/" target="_blank" rel="noopener noreferrer">国立国会図書館サーチ</a></li>
+              <li><a href="https://github.com/maedaak/NDLSH-tagger" target="_blank" rel="noopener noreferrer">ソースコード（GitHub）</a></li>
+              <li><a href="https://mbc.dl.itc.u-tokyo.ac.jp/NDLSH_tagger/" target="_blank" rel="noopener noreferrer">オリジナル版サイト（2012年）</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <div>Original: Copyright &copy; 2012-2026 Akira Maeda. All Rights Reserved.</div>
+        <div>Data Source: 国立国会図書館「Web NDL Authorities」普通件名典拠データ</div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/dict.js"></script>
+  <script src="js/tagger.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

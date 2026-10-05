@@ -1,0 +1,12 @@
+# Temporary downloads and datasets
+*.tsv
+*.zip
+*.tar.gz
+*.tmp
+test_output.txt
+sample_ndlsh.json
+MARC-NDLSH-*/
+
+# OS files
+.DS_Store
+Thumbs.db
